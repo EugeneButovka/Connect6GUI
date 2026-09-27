@@ -1,14 +1,26 @@
-
-*.log
+# Python
+__pycache__/
 *.pyc
-*~
+*.pyo
+.venv/
+
+# uv
+# .python-version and uv.lock are tracked
+
+# IDE
+.idea/
+.vscode/
+
+# OS
 .DS_Store
+*~
+
+# Misc
+*.log
 *.swp
+*.csv
 
-
-engines/alumnos
-tournaments/1vs1/
-tournaments/todos/
-.csv
-tournaments/2024.txt
-tournaments/
+engines/*
+!engines/main
+tournaments/*
+!tournaments/sample.txt

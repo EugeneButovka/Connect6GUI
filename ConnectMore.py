@@ -17,6 +17,7 @@ from tkinter import filedialog;
 from tkinter import messagebox;
 from subprocess import *;
 from threading import *;
+import queue
 from time import *;
 import os;
 import random;
@@ -62,6 +63,17 @@ class App(Frame):
         #Timeout de motor
         self.timeout = 30
 
+        #Generation of the current game, to ignore stale exceptions after a restart
+        self.gameGen = 0
+        self.winner = -1
+        self.feedback = None
+        self.error = None
+
+        #UI marshalling for the search thread (Tk is not thread safe)
+        self.mainThread = current_thread();
+        self.uiQueue = queue.Queue();
+        self.processUiQueue();
+
         self.initResource();
 
         self.createBoard();
@@ -73,8 +85,35 @@ class App(Frame):
         self.botPlayerBlack.release();
         self.botPlayerWhite.release();
         self.currentGame.release();
-        self.searchThread.join();
+        self.searchThread.join(2);
         Frame.destroy(self);
+
+    #Marshal UI work from the search thread to the Tk main thread
+    def runInMainThread(self, fn):
+        if current_thread() is self.mainThread:
+            return fn();
+        done = Event();
+        result = {'exc': None};
+        def wrapper():
+            try:
+                fn();
+            except BaseException as e:
+                result['exc'] = e;
+            finally:
+                done.set();
+        self.uiQueue.put(wrapper);
+        if not done.wait(5) and self.gameState == GameState.Exit:
+            return;
+        if result['exc'] is not None:
+            raise result['exc'];
+
+    def processUiQueue(self):
+        try:
+            while True:
+                self.uiQueue.get_nowait()();
+        except queue.Empty:
+            pass;
+        self.after(50, self.processUiQueue);
 
     def initResource(self):
 
@@ -122,7 +161,7 @@ class App(Frame):
         self.faces['lose'] = lost;
 
         # Searching thread
-        self.searchThread = Thread(target = self.searching);
+        self.searchThread = Thread(target = self.searching, daemon = True);
         self.searchThread.start();
         self.showDisplayMsg = True
 
@@ -431,12 +470,16 @@ class App(Frame):
     def waitForMove(self, currGameEngine):
         color = self.nextColor();
         while True:
+            if self.gameState == GameState.Exit:
+                raise Exception('Exiting');
             # print('waitForMove');
             msg = currGameEngine.waitForNextMsg();
+            if msg == None:
+                raise Exception('Engine is not ready');
             # print('Msg:', msg);
             move = Move.fromCmd(msg, color);
             # print('Wait move:', move);
-            self.updateStatus();
+            self.runInMainThread(self.updateStatus);
             if move != None:
                 break;
                 
@@ -451,6 +494,7 @@ class App(Frame):
     #Threaded search
     def searching(self):
         currentTurn = -1
+        turnGen = self.gameGen
         while True:
             try:
                 if self.gameState == GameState.Exit:
@@ -467,15 +511,16 @@ class App(Frame):
                                 currEngine = self.currentGame.white.engine;
                                 
                             currentTurn = color
+                            turnGen = self.gameGen
                             currEngine.color = color;
                             currEngine.next(self.moveList);
                             move = self.waitForMove(currEngine);
                             #print(move)
                                 
                             if(self.gameState != GameState.Win and self.gameState != GameState.Draw and self.gameState != GameState.Idle):
-                                self.makeMove(move);
+                                self.runInMainThread(lambda: self.makeMove(move));
                                 if self.gameState == GameState.WaitForEngine and self.gameMode == GameState.AI2Human:
-                                    self.toGameState(GameState.WaitForHumanFirst);
+                                    self.runInMainThread(lambda: self.toGameState(GameState.WaitForHumanFirst));
                                     
                             sleep(0.2)
                             
@@ -487,24 +532,25 @@ class App(Frame):
                     sleep(0.2)
             except Exception as e:
                 print('Exception when searching: ' + str(e));
-                #Decide the win by opponent's exception
+                #Decide the win by opponent's exception, but ignore stale
+                #exceptions from a game that was restarted meanwhile
                 #print("Game state:", self.gameState)
-                if self.gameState == GameState.WaitForEngine:
+                if self.gameState == GameState.WaitForEngine and turnGen == self.gameGen:
                     if currentTurn == Move.BLACK:
                         self.winner = Move.WHITE
                         self.feedback = str(e)
                         self.error = e
                         if self.showDisplayMsg:
-                            messagebox.showinfo("White Win", "White Win by Black exception ;)")
+                            self.runInMainThread(lambda: messagebox.showinfo("White Win", "White Win by Black exception ;)"))
                     else:
                         self.winner = Move.BLACK
                         self.feedback = str(e)
                         self.error = e
                         if self.showDisplayMsg:
-                            messagebox.showinfo("Black Win", "Black Win by Black exception ;)")
-                            
-                self.toGameState(GameState.Win);
-                    
+                            self.runInMainThread(lambda: messagebox.showinfo("Black Win", "Black Win by Black exception ;)"))
+
+                    self.runInMainThread(lambda: self.toGameState(GameState.Win));
+
                 sleep(0.5);
 
     def updateStatus(self):
@@ -589,6 +635,7 @@ class App(Frame):
 
     def newGame(self):
         #Release engines
+        self.gameGen += 1;
         self.botPlayerBlack.release();
         self.botPlayerWhite.release();
         self.currentGame.release();

@@ -1,3 +1,5 @@
+import os
+
 from engine import *
 
 class MoveExceptionType:
@@ -69,7 +71,7 @@ class HumanPlayer(Player):
 class BotPlayer(Player):
     def __init__(self):
         super().__init__()
-        self.path = ""
+        self.path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engines', 'main')
         self.type = Player.BOT
         self.engine = GameEngine()
         

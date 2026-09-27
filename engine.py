@@ -1,6 +1,7 @@
 from time import *;
 import os;
 import random;
+import signal
 from subprocess import *;
 from threading import *;
 
@@ -23,6 +24,8 @@ class Move:
     def fromCmd(cmd, color = None):
         # print(cmd);
         # print(self);
+        if cmd == None:
+            return None;
         cmd = cmd.strip();
         if cmd.startswith('move '):
             cmd = cmd[5:].upper();
@@ -116,7 +119,8 @@ class GameEngine:
             startupinfo.dwFlags |= STARTF_USESHOWWINDOW;
             self.proc = Popen(fileName, stdin=PIPE, stdout=PIPE, bufsize=0, startupinfo=startupinfo);
         else:
-            self.proc = Popen(fileName, stdin=PIPE, stdout=PIPE, bufsize=0);
+            # Own process group so release() can kill the whole engine tree
+            self.proc = Popen(fileName, stdin=PIPE, stdout=PIPE, bufsize=0, start_new_session=True);
 
         # game engine name
         self.setName(fileName);
@@ -157,11 +161,28 @@ class GameEngine:
         if len(self.shortName) > 10:
             self.shortName = self.shortName[:8] + '...';
 
+    def killProc(self):
+        proc = self.proc
+        if proc == None:
+            return;
+        try:
+            if os.name == 'nt':
+                #Kill the whole engine process tree
+                run(['taskkill', '/PID', str(proc.pid), '/T', '/F']);
+            else:
+                #The engine may spawn children (e.g. PyInstaller onefile),
+                #kill the whole process group so none of them survive
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM);
+        except Exception:
+            try:
+                proc.terminate();
+            except Exception:
+                pass;
+
     def release(self):
         while self.proc != None:
             if self.proc.poll() == None:
-                self.proc.terminate();
-                # self.sendCmd('quit\n');
+                self.killProc();
                 # print('Release');
                 sleep(0.2);
             else:
