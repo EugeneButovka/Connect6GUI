@@ -42,10 +42,25 @@ After replacing the engine binary, no extra steps are needed — the GUI spawns 
 
 ## Engine Selection
 
-The default engine is `engines/main`, loaded automatically on start. To change it in the source, edit the default path in `BotPlayer.__init__` (`tournament.py`):
+The default engine is picked per platform by `defaultEnginePath()` in `tournament.py`:
+
+| OS | Candidates (first existing wins) |
+| --- | --- |
+| Windows | `engines/main.exe`, `engines/cloudict.exe` |
+| macOS / Linux | `engines/main`, `engines/cloudict.app`, `engines/cloudict.linux` |
+
+> Windows: build the TIA engine on Windows (`uv run pyinstaller main.spec` in
+> the engine project) and copy `dist/main.exe` to `engines/main.exe`.
+> Engine binaries are platform-specific — a macOS/Linux build cannot be
+> executed on Windows (WinError 193).
+
+To change it in the source, edit the candidate list in `defaultEnginePath()`:
 
 ```python
-self.path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engines', 'main')
+if os.name == 'nt':
+    candidates = ['main.exe', 'cloudict.exe']
+else:
+    candidates = ['main', 'cloudict.app', 'cloudict.linux']
 ```
 
 Alternatives at runtime:
@@ -66,10 +81,15 @@ The GUI runs the engine as a subprocess: commands go to the engine's **stdin**, 
 | `black XXXX` | Place the black stone(s) on position XXXX |
 | `white XXXX` | Place the white stone(s) on position XXXX |
 | `next` | Engine searches and replies with its move |
-| `depth d` | Set the alpha-beta search depth (default 6) |
+| `depth d` | Set the alpha-beta search depth (AI Level: Low=2, Medium=3, High=6) |
 | `vcf` / `unvcf` | Enable / disable VCF search |
 
 The engine answers with lines such as `name <name>` and `move XXXX`; all other output (stats, help text) is ignored by the GUI.
+
+> **Performance note:** TIA.Connect6's search has no pruning and evaluates the
+> whole board at every node, so runtime grows ~40x per depth level. Measured
+> per move: depth 2 ≈ 2–3s, depth 3 ≈ 4–5s, depth 4 ≈ 100s+ (GUI timeout is
+> 30s). That's why Low/Medium map to 2/3.
 
 ## Tournaments
 

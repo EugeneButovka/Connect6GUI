@@ -176,10 +176,10 @@ class App(Frame):
         labelframe.pack(fill=X, expand=1);
         self.aiLevel = IntVar();
         #print(self.aiLevel.get());
-        labelframe.lowRBtn = Radiobutton(labelframe, text="Low", variable=self.aiLevel, value=4);
+        labelframe.lowRBtn = Radiobutton(labelframe, text="Low", variable=self.aiLevel, value=2);
         labelframe.lowRBtn.select();
         labelframe.lowRBtn.pack( anchor = W );
-        labelframe.mediumRBtn = Radiobutton(labelframe, text="Medium", variable=self.aiLevel, value=5);
+        labelframe.mediumRBtn = Radiobutton(labelframe, text="Medium", variable=self.aiLevel, value=3);
         labelframe.mediumRBtn.pack( anchor = W )
         labelframe.highRBtn = Radiobutton(labelframe, text="High", variable=self.aiLevel, value=6);
         labelframe.highRBtn.pack( anchor = W );

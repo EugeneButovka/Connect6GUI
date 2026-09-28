@@ -2,6 +2,18 @@ import os
 
 from engine import *
 
+def defaultEnginePath():
+    enginesDir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engines')
+    if os.name == 'nt':
+        candidates = ['main.exe', 'cloudict.exe']
+    else:
+        candidates = ['main', 'cloudict.app', 'cloudict.linux']
+    for name in candidates:
+        path = os.path.join(enginesDir, name)
+        if os.path.isfile(path):
+            return path
+    return os.path.join(enginesDir, candidates[0])
+
 class MoveExceptionType:
     TIMEOUT = -1
     INVALID_MOVE = -2
@@ -71,7 +83,7 @@ class HumanPlayer(Player):
 class BotPlayer(Player):
     def __init__(self):
         super().__init__()
-        self.path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engines', 'main')
+        self.path = defaultEnginePath()
         self.type = Player.BOT
         self.engine = GameEngine()
         
