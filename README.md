@@ -81,7 +81,7 @@ The GUI runs the engine as a subprocess: commands go to the engine's **stdin**, 
 | `black XXXX` | Place the black stone(s) on position XXXX |
 | `white XXXX` | Place the white stone(s) on position XXXX |
 | `next` | Engine searches and replies with its move |
-| `depth d` | Set the alpha-beta search depth (AI Level: Low=2, Medium=3, High=6) |
+| `depth d` | Set the alpha-beta search depth (AI Level: Low=2, Medium=3, High=4) |
 | `vcf` / `unvcf` | Enable / disable VCF search |
 
 The engine answers with lines such as `name <name>` and `move XXXX`; all other output (stats, help text) is ignored by the GUI.
